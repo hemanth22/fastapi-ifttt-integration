@@ -8,6 +8,8 @@ from contextlib import asynccontextmanager
 import pytz
 from fastapi import FastAPI, HTTPException
 from typing import List, Optional
+from redis_update import get_postgres_data, update_redis, redis_client
+import json
 
 # Configure Logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -81,63 +83,39 @@ def process_reminders_logic():
         logger.error(f"Timezone error: {str(e)}")
         return {"error": str(e)}
 
-    connection = get_db_connection()
-    if not connection:
-        logger.error("Database connection failed during processing.")
-        return {"error": "Database connection failed"}
+    # Fetch from Redis instead of Postgres
+    try:
+        redis_data = redis_client.get('remainder_ifttt')
+        if not redis_data:
+             logger.info("No data found in Redis for 'remainder_ifttt'.")
+             return {"message": "No data in Redis.", "date": formatted_date, "current_time": current_time_min, "processed_messages": []}
+        
+        messages = json.loads(redis_data)
+        logger.debug(f"Fetched {len(messages)} messages from Redis.")
+
+    except Exception as e:
+        logger.error(f"Error fetching/parsing from Redis: {e}")
+        return {"error": f"Redis error: {str(e)}"}
 
     results_summary = []
     
-    try:
-        cursor = connection.cursor()
-        # Using json_agg as requested
-        query = """
-        SELECT json_agg(t) FROM (
-            SELECT
-                message_date,
-                message
-            FROM
-                remainder_ifttt
-            WHERE
-                to_char(message_date,'YYYY-MM-DD') = %s
-        ) t;
-        """
-        # logger.debug(f"Executing query params: ({formatted_date},)")
-        cursor.execute(query, (formatted_date,))
-        row = cursor.fetchone()
+    for msg_item in messages:
+        msg_date_str = msg_item.get('message_date')
+        msg_content = msg_item.get('message')
         
-        if not row or not row[0]:
-            logger.info("No messages found for this date (NULL result).")
-            return {"message": "No messages found for this date.", "date": formatted_date, "current_time": current_time_min, "processed_messages": []}
-
-        messages = row[0] # List of dicts
-        logger.debug(f"Fetched {len(messages)} messages for today.")
-
-        for msg_item in messages:
-            msg_date_str = msg_item.get('message_date')
-            msg_content = msg_item.get('message')
-            
-            # Simple string matching up to minute
-            if msg_date_str and msg_date_str.startswith(current_time_min):
-                logger.info(f"Time match! Triggering IFTTT for: {msg_content}")
-                success, status_msg = make_iftttcall(msg_content)
-                results_summary.append({
-                    "message": msg_content,
-                    "message_date": msg_date_str,
-                    "ifttt_sent": success,
-                    "status": status_msg
-                })
-            else:
-                logger.debug(f"Time mismatch. Current: {current_time_min}, Msg: {msg_date_str}")
-                pass
-            
-    except psycopg2.Error as e:
-        logger.error(f"Database error executing query: {str(e)}")
-        return {"error": f"Database error: {str(e)}"}
-    finally:
-        if connection:
-            cursor.close()
-            connection.close()
+        # Simple string matching up to minute
+        if msg_date_str and msg_date_str.startswith(current_time_min):
+            logger.info(f"Time match! Current: {current_time_min}, Msg date: {msg_date_str} - Triggering IFTTT for: {msg_content}")
+            success, status_msg = make_iftttcall(msg_content)
+            results_summary.append({
+                "message": msg_content,
+                "message_date": msg_date_str,
+                "ifttt_sent": success,
+                "status": status_msg
+            })
+        else:
+            logger.info(f"Time mismatch. Current: {current_time_min}, Msg date: {msg_date_str}")
+            pass
             
     if results_summary:
         logger.info(f"Processed {len(results_summary)} matching reminders.")
@@ -180,6 +158,26 @@ async def check_reminders():
     if "error" in result:
         raise HTTPException(status_code=500, detail=result.get("error"))
     return result
+
+@app.post("/update-redis")
+async def update_redis_endpoint():
+    logger.debug("Received request for /update-redis")
+    try:
+        # Run sync DB fetch in thread
+        data = await asyncio.to_thread(get_postgres_data)
+        
+        if data is None:
+            raise HTTPException(status_code=500, detail="Failed to fetch data from PostgreSQL")
+            
+        # Run sync Redis update in thread
+        await asyncio.to_thread(update_redis, data)
+        
+        return {"status": "success", "message": "Redis updated successfully"}
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Error in /update-redis: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # For debugging/direct run
 if __name__ == "__main__":
