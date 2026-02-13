@@ -1,0 +1,1 @@
+SELECT insert_ifttt_remainder('2026-02-12 01:42:00', 'Take coffee');

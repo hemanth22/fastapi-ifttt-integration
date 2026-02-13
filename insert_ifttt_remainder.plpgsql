@@ -1,0 +1,42 @@
+CREATE OR REPLACE FUNCTION insert_ifttt_remainder(p_date TEXT, p_message TEXT)
+RETURNS TEXT AS '
+DECLARE
+    v_date TIMESTAMP;
+BEGIN
+    BEGIN
+        -- Attempt to parse the date
+        v_date := p_date::TIMESTAMP;
+
+        -- Attempt to insert the data
+        INSERT INTO remainder_ifttt (message_date, message)
+        VALUES (v_date, p_message);
+
+        RETURN format(
+            ''Function insert to table name insert_ifttt_remainder success. Input: p_date=%s, p_message=%s.'',
+            p_date, p_message
+        );
+
+    EXCEPTION
+        WHEN data_exception THEN
+            RETURN format(
+                ''Function insert to table name insert_ifttt_remainder failed. Input: p_date=%s, p_message=%s. Error: Invalid data input – check date or message format'',
+                p_date, p_message
+            );
+        WHEN null_value_not_allowed THEN
+            RETURN format(
+                ''Function insert to table name insert_ifttt_remainder failed. Input: p_date=%s, p_message=%s. Error: Required fields cannot be NULL'',
+                p_date, p_message
+            );
+        WHEN unique_violation THEN
+            RETURN format(
+                ''Function insert to table name insert_ifttt_remainder failed. Input: p_date=%s, p_message=%s. Error: Duplicate entry not allowed'',
+                p_date, p_message
+            );
+        WHEN others THEN
+            RETURN format(
+                ''Function insert to table name insert_ifttt_remainder failed. Input: p_date=%s, p_message=%s. Error: %s'',
+                p_date, p_message, SQLERRM
+            );
+    END;
+END;
+' LANGUAGE plpgsql;
