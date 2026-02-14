@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>FastAPI IFTTT Remainder Tool</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f6f9;
+            display: flex;
+            justify-content: center;
+            padding: 40px;
+        }
+
+        .form-container {
+            background-color: #ffffff;
+            padding: 30px 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 500px;
+        }
+
+        h2 {
+            text-align: center;
+            color: #333;
+        }
+
+        label {
+            display: block;
+            margin: 15px 0 5px;
+            font-weight: bold;
+        }
+
+        input[type="date"],
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            font-size: 14px;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin-right: 10px;
+            margin-top: 20px;
+            font-size: 14px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button[type="submit"] {
+            background-color: #007bff;
+            color: white;
+        }
+
+        button[type="reset"] {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .submitted-info {
+            margin-top: 30px;
+            background: #eaf3ff;
+            padding: 15px;
+            border-radius: 6px;
+        }
+
+        .submitted-info h3 {
+            margin-top: 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="form-container">
+        <h2>IFTTT Remainder Updater</h2>
+        <form method="post" action="/submit-ifttt">
+            <label for="date_input">Select Date and Time:</label>
+            <input type="datetime-local" id="date_input" name="date_input" step="1" required>
+
+            <label for="message">Message:</label>
+            <textarea id="message" name="message" rows="4" required></textarea>
+
+            <button type="submit">Submit</button>
+            <button type="reset">Clear</button>
+        </form>
+
+        {% if submitted %}
+        <div class="submitted-info">
+            <h3>Submitted Info:</h3>
+            <p><strong>Date:</strong> {{ date_input }}</p>
+            <p><strong>Message:</strong> {{ message }}</p>
+        </div>
+        {% endif %}
+    </div>
+</body>
+
+</html>

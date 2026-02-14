@@ -10,6 +10,7 @@ from fastapi import FastAPI, HTTPException
 from typing import List, Optional
 from redis_update import get_postgres_data, update_redis, redis_client
 import json
+from ifttt_web_interface import app as ifttt_app
 
 # Configure Logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -58,7 +59,7 @@ def make_iftttcall(message_info: str):
         #logger.debug(f"Sending POST request to {base_url}")
         logger.debug(f"Sending POST request to IFTTT Webhook : https://maker.ifttt.com/trigger/BitroidNotification/with/key")
         response = requests.post(base_url, json=payload)
-        logger.debug(f"IFTTT Response Status Code: {response.status_code}")
+        logger.info(f"IFTTT Response Status Code: {response.status_code}")
         if response.status_code == 200:
             logger.info('JSON payload sent successfully to IFTTT Webhook')
             return True, "Success"
@@ -149,6 +150,7 @@ async def lifespan(app: FastAPI):
         logger.info("Scheduler task cancelled.")
 
 app = FastAPI(lifespan=lifespan)
+app.include_router(ifttt_app.router)
 
 @app.get("/check-reminders")
 async def check_reminders():
