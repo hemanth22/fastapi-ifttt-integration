@@ -123,33 +123,11 @@ def process_reminders_logic():
     
     return {"date": formatted_date, "current_time": current_time_min, "processed_messages": results_summary}
 
-async def scheduler_loop():
-    logger.info("Scheduler started. Running every 60 seconds.")
-    while True:
-        try:
-            logger.info("Scheduler: Checking reminders...")
-            # Run sync function in thread to avoid blocking event loop
-            result = await asyncio.to_thread(process_reminders_logic)
-            logger.debug(f"Scheduler check result: {result.get('processed_messages')}")
-        except Exception as e:
-            logger.error(f"Scheduler error: {e}")
-        
-        # Wait for next minute
-        await asyncio.sleep(60)
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Startup: Start scheduler
-    task = asyncio.create_task(scheduler_loop())
-    yield
-    # Shutdown: Cancel scheduler
-    task.cancel()
-    try:
-        await task
-    except asyncio.CancelledError:
-        logger.info("Scheduler task cancelled.")
+# Scheduler loop removed for Vercel serverless deployment.
+# We now use Vercel Cron Jobs to trigger /check-reminders endpoint.
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI()
 app.include_router(ifttt_app.router)
 
 @app.get("/check-reminders")
