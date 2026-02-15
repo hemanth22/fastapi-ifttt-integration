@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+python-multipart
+jinja2
+requests
+asyncpg
+psycopg2-binary
+redis
+pytz
+pydantic
