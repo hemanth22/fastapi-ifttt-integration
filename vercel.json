@@ -13,10 +13,6 @@
     ],
     "crons": [
         {
-            "path": "/check-reminders",
-            "schedule": "* * * * *"
-        },
-        {
             "path": "/redis-update",
             "schedule": "30 19 * * *"
         }
