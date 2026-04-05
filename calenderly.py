@@ -2,6 +2,7 @@ import os
 import json
 import logging
 from datetime import datetime
+import certifi
 from jinja2 import Template
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
@@ -17,7 +18,7 @@ def mongodb_fetch_calender_data():
         return []
 
     # Create a new client and connect to the server
-    client = MongoClient(uri, server_api=ServerApi('1'))
+    client = MongoClient(uri, server_api=ServerApi('1'), tlsCAFile=certifi.where())
 
     try:
         # Send a ping to confirm a successful connection

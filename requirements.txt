@@ -10,3 +10,4 @@ pytz
 pydantic
 APScheduler
 pymongo
+certifi

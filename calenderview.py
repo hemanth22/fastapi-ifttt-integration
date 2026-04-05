@@ -5,6 +5,7 @@ import sys
 import json
 from datetime import datetime
 import pytz
+import certifi
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
 
@@ -97,7 +98,7 @@ def mongodb_fetch_calender_data():
         return
 
     # Create a new client and connect to the server
-    client = MongoClient(mongodb_uri, server_api=ServerApi('1'))
+    client = MongoClient(mongodb_uri, server_api=ServerApi('1'), tlsCAFile=certifi.where())
 
     try:
         # Send a ping to confirm a successful connection
@@ -133,7 +134,7 @@ def update_mongodb_data(data):
             logger.error("Error: MONGODB_CLOUD environment variable not set.")
             return
             
-        client = MongoClient(mongodb_uri, server_api=ServerApi('1'))
+        client = MongoClient(mongodb_uri, server_api=ServerApi('1'), tlsCAFile=certifi.where())
         
         # Connect to your preferred database and collection
         db = client['calenderly']
