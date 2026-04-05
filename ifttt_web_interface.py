@@ -58,7 +58,7 @@ logger.info("Jinja2 Templates loaded.")
 @app.get("/ifttt-remainders", response_class=HTMLResponse)
 async def read_form(request: Request):
     logger.info("Read form requested.")
-    return templates.TemplateResponse("ifttt_form.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="ifttt_form.html", context={"request": request})
 
 @app.post("/submit-ifttt", response_class=HTMLResponse)
 async def handle_form(
@@ -105,7 +105,7 @@ async def handle_form(
     except Exception as e:
         logger.error(f"Error triggering MongoDB update: {e}")
 
-    return templates.TemplateResponse("ifttt_form.html", {
+    return templates.TemplateResponse(request=request, name="ifttt_form.html", context={
         "request": request,
         "submitted": True,
         "date_input": date_input,
