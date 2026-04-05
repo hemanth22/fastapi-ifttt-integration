@@ -9,6 +9,7 @@ import pytz
 from fastapi import FastAPI, HTTPException
 from typing import List, Optional
 from redis_update import get_postgres_data, update_redis, redis_client
+from calenderview import get_db_connection_for_calender, get_postgres_data_for_calender, update_mongodb_data, mongodb_fetch_calender_data
 import json
 from ifttt_web_interface import app as ifttt_app
 
@@ -23,6 +24,7 @@ POSTGRES_PORT = os.environ.get('postgres_port')
 POSTGRES_USER = os.environ.get('postgres_user')
 POSTGRES_PASSWORD = os.environ.get('postgres_password')
 IFTTT_WEBHOOK_KEY = os.environ.get('IFTTT_WEBHOOK')
+mongodb_uri = os.environ.get('MONGODB_CLOUD')
 
 logger.debug("Environment variables loaded.")
 
@@ -157,6 +159,39 @@ async def update_redis_endpoint():
         raise he
     except Exception as e:
         logger.error(f"Error in /update-redis: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/update-mongodb-calender")
+async def update_mongodb_calender_api():
+    logger.debug("Received request for /update-mongodb-calender")
+    try:
+        data = await asyncio.to_thread(get_postgres_data_for_calender)
+        
+        # update_mongodb_data will handle None but it's good to check
+        if data is None:
+            raise HTTPException(status_code=500, detail="Failed to fetch data from PostgreSQL")
+            
+        await asyncio.to_thread(update_mongodb_data, data)
+        
+        return {"status": "success", "message": "MongoDB updated successfully"}
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Error in /update-mongodb-calender: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/fetch-mongodb-calender")
+async def fetch_mongodb_calender_api():
+    logger.debug("Received request for /fetch-mongodb-calender")
+    try:
+        data = await asyncio.to_thread(mongodb_fetch_calender_data)
+        if data is None:
+            raise HTTPException(status_code=500, detail="Failed to fetch data from MongoDB")
+        return {"status": "success", "data": data}
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Error in /fetch-mongodb-calender: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # For debugging/direct run
