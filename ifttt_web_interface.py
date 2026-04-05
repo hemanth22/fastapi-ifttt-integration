@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from datetime import datetime
 import asyncio
 from redis_update import get_postgres_data, update_redis
+from calenderview import get_postgres_data_for_calender, update_mongodb_data
 import asyncpg
 import os
 import requests
@@ -91,6 +92,18 @@ async def handle_form(
 
     except Exception as e:
         logger.error(f"Error triggering Redis update: {e}")
+
+    # Trigger MongoDB update
+    try:
+        logger.info("Triggering MongoDB update...")
+        mongo_data = await asyncio.to_thread(get_postgres_data_for_calender)
+        if mongo_data is not None:
+             await asyncio.to_thread(update_mongodb_data, mongo_data)
+             logger.info("MongoDB update triggered successfully.")
+        else:
+             logger.error("Failed to fetch data from postgresql to MongoDB update.")
+    except Exception as e:
+        logger.error(f"Error triggering MongoDB update: {e}")
 
     return templates.TemplateResponse("ifttt_form.html", {
         "request": request,

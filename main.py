@@ -12,6 +12,9 @@ from redis_update import get_postgres_data, update_redis, redis_client
 from calenderview import get_db_connection_for_calender, get_postgres_data_for_calender, update_mongodb_data, mongodb_fetch_calender_data
 import json
 from ifttt_web_interface import app as ifttt_app
+from calenderly import router as calenderly_router
+
+
 
 # Configure Logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -131,6 +134,11 @@ def process_reminders_logic():
 
 app = FastAPI()
 app.include_router(ifttt_app.router)
+app.include_router(calenderly_router)
+
+@app.get("/")
+def read_root():
+    return {"message": "Welcome to FastAPI which is fully loaded with MongoDB, RedisDB, PostgreSQL, IFTTT"}
 
 @app.get("/check-reminders")
 async def check_reminders():

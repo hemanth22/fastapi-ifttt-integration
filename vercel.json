@@ -10,11 +10,5 @@
             "src": "/(.*)",
             "dest": "main.py"
         }
-    ],
-    "crons": [
-        {
-            "path": "/redis-update",
-            "schedule": "30 19 * * *"
-        }
     ]
 }
