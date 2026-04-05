@@ -9,5 +9,5 @@ redis
 pytz
 pydantic
 APScheduler
-pymongo
+pymongo[srv]
 certifi
