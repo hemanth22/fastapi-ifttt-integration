@@ -147,6 +147,7 @@ def generate_calendar_html(data):
                     eventTimeFormat: { // like '14:30'
                         hour: '2-digit',
                         minute: '2-digit',
+                        hour12: false,
                         meridiem: false
                     }
                 });
