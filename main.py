@@ -13,6 +13,7 @@ from calenderview import get_db_connection_for_calender, get_postgres_data_for_c
 import json
 from ifttt_web_interface import app as ifttt_app
 from calenderly import router as calenderly_router
+from ifttt_custom_call import router as ifttt_custom_router
 
 
 
@@ -135,6 +136,7 @@ def process_reminders_logic():
 app = FastAPI()
 app.include_router(ifttt_app.router)
 app.include_router(calenderly_router)
+app.include_router(ifttt_custom_router)
 
 @app.get("/")
 def read_root():
