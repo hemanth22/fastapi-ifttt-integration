@@ -204,6 +204,15 @@ async def fetch_mongodb_calender_api():
         logger.error(f"Error in /fetch-mongodb-calender: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+@app.get("/status_code")
+async def status():
+    return '200';
+
+@app.get("/health")
+async def health():
+    return {'FAST_IFTTT_VERCEL' : 'OK'}
+
 # For debugging/direct run
 if __name__ == "__main__":
     import uvicorn
