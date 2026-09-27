@@ -1,3 +1,7 @@
+import newrelic.agent
+newrelic.agent.initialize()
+newrelic.agent.register_application(timeout=10.0)
+
 import os
 import psycopg2
 import requests
@@ -16,6 +20,10 @@ from calenderly import router as calenderly_router
 from ifttt_custom_call import router as ifttt_custom_router
 
 
+NEW_RELIC_LICENSE_KEY=os.environ.get('NEW_RELIC_LICENSE_KEY')
+NEW_RELIC_APP_NAME=os.environ.get('NEW_RELIC_APP_NAME')
+NEW_RELIC_LOG=os.environ.get('NEW_RELIC_LOG')
+NEW_RELIC_DISTRIBUTED_TRACING_ENABLED=os.environ.get('NEW_RELIC_DISTRIBUTED_TRACING_ENABLED')
 
 # Configure Logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -148,7 +156,17 @@ async def check_reminders():
     # Run sync DB logic in threadpool to avoid blocking event loop
     result = await asyncio.to_thread(process_reminders_logic)
     if "error" in result:
+        newrelic.agent.add_custom_attribute("reminder_error", result["error"])
         raise HTTPException(status_code=500, detail=result.get("error"))
+
+    processed = result.get("processed_messages", [])
+    newrelic.agent.add_custom_attribute("reminders_matched", len(processed))
+    for item in processed:
+        newrelic.agent.record_custom_event("IftttReminder", {
+            "sent": item["ifttt_sent"],
+            "status": item["status"],
+            "message_date": item["message_date"],
+        })
     return result
 
 @app.post("/update-redis")
@@ -163,11 +181,13 @@ async def update_redis_endpoint():
             
         # Run sync Redis update in thread
         await asyncio.to_thread(update_redis, data)
-        
+        newrelic.agent.add_custom_attribute("redis_rows", len(data))
+
         return {"status": "success", "message": "Redis updated successfully"}
     except HTTPException as he:
         raise he
     except Exception as e:
+        newrelic.agent.notice_error()
         logger.error(f"Error in /update-redis: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -187,6 +207,7 @@ async def update_mongodb_calender_api():
     except HTTPException as he:
         raise he
     except Exception as e:
+        newrelic.agent.notice_error()
         logger.error(f"Error in /update-mongodb-calender: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -201,16 +222,19 @@ async def fetch_mongodb_calender_api():
     except HTTPException as he:
         raise he
     except Exception as e:
+        newrelic.agent.notice_error()
         logger.error(f"Error in /fetch-mongodb-calender: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/status_code")
 async def status():
+    newrelic.agent.ignore_transaction()
     return '200';
 
 @app.get("/health")
 async def health():
+    newrelic.agent.ignore_transaction()
     return {'FAST_IFTTT_VERCEL' : 'OK'}
 
 # For debugging/direct run

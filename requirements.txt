@@ -11,3 +11,4 @@ pydantic
 APScheduler
 pymongo[srv]
 certifi
+newrelic
