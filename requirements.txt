@@ -9,3 +9,6 @@ redis
 pytz
 pydantic
 APScheduler
+pymongo[srv]
+certifi
+newrelic

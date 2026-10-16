@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from datetime import datetime
 import asyncio
 from redis_update import get_postgres_data, update_redis
+from calenderview import get_postgres_data_for_calender, update_mongodb_data
 import asyncpg
 import os
 import requests
@@ -57,7 +58,7 @@ logger.info("Jinja2 Templates loaded.")
 @app.get("/ifttt-remainders", response_class=HTMLResponse)
 async def read_form(request: Request):
     logger.info("Read form requested.")
-    return templates.TemplateResponse("ifttt_form.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="ifttt_form.html", context={"request": request})
 
 @app.post("/submit-ifttt", response_class=HTMLResponse)
 async def handle_form(
@@ -92,7 +93,19 @@ async def handle_form(
     except Exception as e:
         logger.error(f"Error triggering Redis update: {e}")
 
-    return templates.TemplateResponse("ifttt_form.html", {
+    # Trigger MongoDB update
+    try:
+        logger.info("Triggering MongoDB update...")
+        mongo_data = await asyncio.to_thread(get_postgres_data_for_calender)
+        if mongo_data is not None:
+             await asyncio.to_thread(update_mongodb_data, mongo_data)
+             logger.info("MongoDB update triggered successfully.")
+        else:
+             logger.error("Failed to fetch data from postgresql to MongoDB update.")
+    except Exception as e:
+        logger.error(f"Error triggering MongoDB update: {e}")
+
+    return templates.TemplateResponse(request=request, name="ifttt_form.html", context={
         "request": request,
         "submitted": True,
         "date_input": date_input,
