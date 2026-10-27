@@ -4,7 +4,7 @@ import logging
 import sys
 import json
 from datetime import datetime
-import pytz
+from zoneinfo import ZoneInfo
 import certifi
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
@@ -47,7 +47,7 @@ def get_postgres_data_for_calender():
     
     # Timezone setup
     try:
-        ist_timezone = pytz.timezone("Asia/Kolkata")
+        ist_timezone = ZoneInfo("Asia/Kolkata")
         logger.info(f"Timezone set to IST: {ist_timezone}")
         current_dt = datetime.now(ist_timezone)
         logger.info(f"Current date and time: {current_dt}")
@@ -127,35 +127,40 @@ def mongodb_fetch_calender_data():
 def update_mongodb_data(data):
     """
     Mongodb: Update mongoDB cache with json data stored in postgres
+    Raises on failure so callers can report the error.
     """
+    mongodb_uri = os.environ.get("MONGODB_CLOUD")
+    if not mongodb_uri:
+        logger.error("Error: MONGODB_CLOUD environment variable not set.")
+        raise RuntimeError("MONGODB_CLOUD environment variable not set")
+
+    # Validate before clearing the cache so bad input doesn't leave it empty
+    if data and not isinstance(data, (list, dict)):
+        logger.error("Data format not recognized. Expected list or dict.")
+        raise TypeError(f"Expected list or dict, got {type(data).__name__}")
+
     try:
-        mongodb_uri = os.environ.get("MONGODB_CLOUD")
-        if not mongodb_uri:
-            logger.error("Error: MONGODB_CLOUD environment variable not set.")
-            return
-            
         client = MongoClient(mongodb_uri, server_api=ServerApi('1'), tlsCAFile=certifi.where())
-        
+
         # Connect to your preferred database and collection
         db = client['calenderly']
         collection = db['reminders_cache']
-        
+
         # Clear the old cache
         collection.delete_many({})
-        
+
         # Insert the new data
         if data:
             if isinstance(data, list):
                 collection.insert_many(data)
-            elif isinstance(data, dict):
-                collection.insert_one(data)
             else:
-                logger.warning("Data format not recognized. Expected list or dict.")
-                
+                collection.insert_one(data)
+
         logger.info("Successfully updated MongoDB cache with PostgreSQL data.")
-        
+
     except Exception as e:
         logger.error(f"Error updating MongoDB: {e}")
+        raise
     finally:
         if 'client' in locals():
             client.close()

@@ -5,7 +5,7 @@ import logging
 import sys
 import json
 from datetime import datetime
-import pytz
+from zoneinfo import ZoneInfo
 
 
 # Configure logging
@@ -62,7 +62,7 @@ def get_postgres_data():
     
     # Timezone setup
     try:
-        ist_timezone = pytz.timezone("Asia/Kolkata")
+        ist_timezone = ZoneInfo("Asia/Kolkata")
         current_dt = datetime.now(ist_timezone)
         formatted_date = current_dt.strftime("%Y-%m-%d")
         logger.info(f"Processing for date: {formatted_date}")

@@ -1,4 +1,5 @@
 from typing import Dict
+import asyncio
 import logging
 import os
 import requests
@@ -33,7 +34,7 @@ def send_ifttt_payload(payload: IFTTTPayload) -> requests.Response:
     payload_data = payload.model_dump()
     logger.debug(f"Constructed payload: {payload_data}")
 
-    logger.debug(f"Sending payload to IFTTT: {url}", extra={"payload": payload_data})
+    logger.info(f"Sending payload to IFTTT: {url}", extra={"payload": payload_data})
 
     response = requests.post(url, json=payload_data, timeout=10)
     logger.debug(f"IFTTT webhook response: {response.status_code} and {response.text}",
@@ -58,7 +59,7 @@ async def send_payload(payload: IFTTTPayload, request: Request) -> Dict[str, str
     )
 
     try:
-        response = send_ifttt_payload(payload)
+        response = await asyncio.to_thread(send_ifttt_payload, payload)
         return {
             "status": "success",
             "message": "Payload forwarded to IFTTT",

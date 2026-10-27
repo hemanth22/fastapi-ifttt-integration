@@ -72,7 +72,13 @@ def generate_calendar_html(data):
 
         events.append(event_data)
 
-    events_json = json.dumps(events)
+    # Escape HTML-significant chars so user-supplied text can't break out of the inline <script>
+    events_json = (
+        json.dumps(events)
+        .replace('<', '\\u003c')
+        .replace('>', '\\u003e')
+        .replace('&', '\\u0026')
+    )
 
     template_str = """
     <!DOCTYPE html>

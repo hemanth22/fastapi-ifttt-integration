@@ -6,7 +6,7 @@ requests
 asyncpg
 psycopg2-binary
 redis
-pytz
+tzdata
 pydantic
 APScheduler
 pymongo[srv]

@@ -45,7 +45,7 @@ The IFTTT event name is hard-coded as `BitroidNotification`. Never hard-code sec
 ## Conventions to follow
 
 - **Keep the misspelled names as they are.** `remainder` (for reminder) and `calender` (for calendar) appear in routes, the Redis key, the Postgres table and function, the MongoDB db and collection, and function names. Renaming any of them breaks deployed clients, cron jobs, and stored data. Use the existing spellings in new code that touches these resources.
-- **Timezone:** all "now" and "today" logic uses `pytz.timezone("Asia/Kolkata")`. Stored `message_date` values are naive IST timestamps.
+- **Timezone:** all "now" and "today" logic uses `zoneinfo.ZoneInfo("Asia/Kolkata")` (not `pytz`). Stored `message_date` values are naive IST timestamps.
 - **Async endpoints, sync I/O:** `psycopg2`, `redis`, and `pymongo` calls are blocking. Inside `async def` routes, wrap them with `await asyncio.to_thread(fn, ...)`. Only the form insert uses `asyncpg` directly.
 - **Helper return contract:** data-fetch helpers return `None` on error and `[]` when there is no data. Callers must tell the two apart: `[]` should still clear or refresh the cache, and `None` is a failure. Endpoints turn `None` into `HTTPException(500)`.
 - **Endpoint error pattern:** use `try` / `except HTTPException: raise` / `except Exception as e: logger.error(...); raise HTTPException(500, detail=str(e))`. For upstream IFTTT failures, return `502` (see `ifttt_custom_call.py`).

@@ -9,7 +9,7 @@ import logging
 import asyncio
 from datetime import datetime
 from contextlib import asynccontextmanager
-import pytz
+from zoneinfo import ZoneInfo
 from fastapi import FastAPI, HTTPException
 from typing import List, Optional
 from redis_update import get_postgres_data, update_redis, redis_client
@@ -90,7 +90,7 @@ def process_reminders_logic():
     """
     # Timezone setup
     try:
-        ist_timezone = pytz.timezone("Asia/Kolkata")
+        ist_timezone = ZoneInfo("Asia/Kolkata")
         current_dt = datetime.now(ist_timezone)
         formatted_date = current_dt.strftime("%Y-%m-%d")
         current_time_min = current_dt.strftime("%Y-%m-%dT%H:%M") # Match up to minute
@@ -197,7 +197,6 @@ async def update_mongodb_calender_api():
     try:
         data = await asyncio.to_thread(get_postgres_data_for_calender)
         
-        # update_mongodb_data will handle None but it's good to check
         if data is None:
             raise HTTPException(status_code=500, detail="Failed to fetch data from PostgreSQL")
             
