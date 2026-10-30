@@ -1,3 +1,7 @@
+import newrelic.agent
+newrelic.agent.initialize()
+newrelic.agent.register_application(timeout=10.0)
+
 import os
 import psycopg2
 import requests
@@ -5,12 +9,21 @@ import logging
 import asyncio
 from datetime import datetime
 from contextlib import asynccontextmanager
-import pytz
+from zoneinfo import ZoneInfo
 from fastapi import FastAPI, HTTPException
 from typing import List, Optional
 from redis_update import get_postgres_data, update_redis, redis_client
+from calenderview import get_db_connection_for_calender, get_postgres_data_for_calender, update_mongodb_data, mongodb_fetch_calender_data
 import json
 from ifttt_web_interface import app as ifttt_app
+from calenderly import router as calenderly_router
+from ifttt_custom_call import router as ifttt_custom_router
+
+
+NEW_RELIC_LICENSE_KEY=os.environ.get('NEW_RELIC_LICENSE_KEY')
+NEW_RELIC_APP_NAME=os.environ.get('NEW_RELIC_APP_NAME')
+NEW_RELIC_LOG=os.environ.get('NEW_RELIC_LOG')
+NEW_RELIC_DISTRIBUTED_TRACING_ENABLED=os.environ.get('NEW_RELIC_DISTRIBUTED_TRACING_ENABLED')
 
 # Configure Logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -23,6 +36,7 @@ POSTGRES_PORT = os.environ.get('postgres_port')
 POSTGRES_USER = os.environ.get('postgres_user')
 POSTGRES_PASSWORD = os.environ.get('postgres_password')
 IFTTT_WEBHOOK_KEY = os.environ.get('IFTTT_WEBHOOK')
+mongodb_uri = os.environ.get('MONGODB_CLOUD')
 
 logger.debug("Environment variables loaded.")
 
@@ -76,7 +90,7 @@ def process_reminders_logic():
     """
     # Timezone setup
     try:
-        ist_timezone = pytz.timezone("Asia/Kolkata")
+        ist_timezone = ZoneInfo("Asia/Kolkata")
         current_dt = datetime.now(ist_timezone)
         formatted_date = current_dt.strftime("%Y-%m-%d")
         current_time_min = current_dt.strftime("%Y-%m-%dT%H:%M") # Match up to minute
@@ -129,6 +143,12 @@ def process_reminders_logic():
 
 app = FastAPI()
 app.include_router(ifttt_app.router)
+app.include_router(calenderly_router)
+app.include_router(ifttt_custom_router)
+
+@app.get("/")
+def read_root():
+    return {"message": "Welcome to FastAPI which is fully loaded with MongoDB, RedisDB, PostgreSQL, IFTTT"}
 
 @app.get("/check-reminders")
 async def check_reminders():
@@ -136,7 +156,17 @@ async def check_reminders():
     # Run sync DB logic in threadpool to avoid blocking event loop
     result = await asyncio.to_thread(process_reminders_logic)
     if "error" in result:
+        newrelic.agent.add_custom_attribute("reminder_error", result["error"])
         raise HTTPException(status_code=500, detail=result.get("error"))
+
+    processed = result.get("processed_messages", [])
+    newrelic.agent.add_custom_attribute("reminders_matched", len(processed))
+    for item in processed:
+        newrelic.agent.record_custom_event("IftttReminder", {
+            "sent": item["ifttt_sent"],
+            "status": item["status"],
+            "message_date": item["message_date"],
+        })
     return result
 
 @app.post("/update-redis")
@@ -151,13 +181,60 @@ async def update_redis_endpoint():
             
         # Run sync Redis update in thread
         await asyncio.to_thread(update_redis, data)
-        
+        newrelic.agent.add_custom_attribute("redis_rows", len(data))
+
         return {"status": "success", "message": "Redis updated successfully"}
     except HTTPException as he:
         raise he
     except Exception as e:
+        newrelic.agent.notice_error()
         logger.error(f"Error in /update-redis: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/update-mongodb-calender")
+async def update_mongodb_calender_api():
+    logger.debug("Received request for /update-mongodb-calender")
+    try:
+        data = await asyncio.to_thread(get_postgres_data_for_calender)
+        
+        if data is None:
+            raise HTTPException(status_code=500, detail="Failed to fetch data from PostgreSQL")
+            
+        await asyncio.to_thread(update_mongodb_data, data)
+        
+        return {"status": "success", "message": "MongoDB updated successfully"}
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        newrelic.agent.notice_error()
+        logger.error(f"Error in /update-mongodb-calender: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/fetch-mongodb-calender")
+async def fetch_mongodb_calender_api():
+    logger.debug("Received request for /fetch-mongodb-calender")
+    try:
+        data = await asyncio.to_thread(mongodb_fetch_calender_data)
+        if data is None:
+            raise HTTPException(status_code=500, detail="Failed to fetch data from MongoDB")
+        return {"status": "success", "data": data}
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        newrelic.agent.notice_error()
+        logger.error(f"Error in /fetch-mongodb-calender: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/status_code")
+async def status():
+    newrelic.agent.ignore_transaction()
+    return '200';
+
+@app.get("/health")
+async def health():
+    newrelic.agent.ignore_transaction()
+    return {'FAST_IFTTT_VERCEL' : 'OK'}
 
 # For debugging/direct run
 if __name__ == "__main__":
